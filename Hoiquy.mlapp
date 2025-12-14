@@ -1,0 +1,367 @@
+classdef Hoiquy1 < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                 matlab.ui.Figure
+        R2EditField              matlab.ui.control.EditField
+        R2EditFieldLabel         matlab.ui.control.Label
+        DonButton                matlab.ui.control.Button
+        KtqudonEditField         matlab.ui.control.EditField
+        KtqudonEditFieldLabel    matlab.ui.control.Label
+        GitrcndonEditField       matlab.ui.control.EditField
+        GitrcndonEditFieldLabel  matlab.ui.control.Label
+        ChyButton                matlab.ui.control.Button
+        KetquansEditField        matlab.ui.control.EditField
+        KtquhiquyLabel           matlab.ui.control.Label
+        DropDown                 matlab.ui.control.DropDown
+        DropDownLabel            matlab.ui.control.Label
+        YEditField               matlab.ui.control.EditField
+        YEditFieldLabel          matlab.ui.control.Label
+        XEditField               matlab.ui.control.EditField
+        XEditFieldLabel          matlab.ui.control.Label
+        UIAxes                   matlab.ui.control.UIAxes
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Value changed function: XEditField
+        function XEditFieldValueChanged(app, event)
+            X = str2num(app.XEditField.Value); % Chuyển chuỗi thành vector số
+            app.XEditField.Value = num2str(X); % Optional: hiển thị lại chuẩn
+        end
+
+        % Value changed function: YEditField
+        function YEditFieldValueChanged(app, event)
+            Y = str2num(app.YEditField.Value);
+            app.YEditField.Value = num2str(Y);
+        end
+
+        % Button pushed function: ChyButton
+        function ChyButtonPushed(app, event)
+            X = str2num(app.XEditField.Value);
+            Y = str2num(app.YEditField.Value);
+            type = app.DropDown.Value;
+
+            if length(X) ~= length(Y)
+                uialert(app.UIFigure,'X và Y phải có cùng số phần tử','Lỗi dữ liệu');
+                return;
+            end
+
+            % ---- Xử lý từng loại hồi quy ----
+            switch type
+                case 'Tuyến tính'
+                    % ====== HỒI QUY TUYẾN TÍNH y = a1*x + a0 =======
+                    n = length(X);
+
+                    sumX  = sum(X);
+                    sumY  = sum(Y);
+                    sumXY = sum(X .* Y);
+                    sumX2 = sum(X .^ 2);
+
+                    a1 = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX^2);
+                    a0 = (sumY - a1*sumX) / n;
+
+                    % Dự đoán giá trị trên tập X
+                    yfit = a1 * X + a0;
+
+                    % Tính R2
+                    st = sum((Y - mean(Y)).^2);
+                    sr = sum((Y - yfit).^2);
+                    r2 = 1 - sr/st;
+
+                    % Hiển thị phương trình
+                    eqStr = sprintf('y = %.4f x + %.4f', a1, a0);
+
+                case 'Hàm mũ'
+                    % Kiểm tra điều kiện hợp lệ
+                    if any(X <= 0) || any(Y <= 0)
+                        uialert(app.UIFigure,'X và Y phải > 0 cho mô hình y = a x^b','Lỗi');
+                        return;
+                    end
+
+                    % Biến đổi log
+                    LX = log(X);
+                    LY = log(Y);
+
+                    n = length(X);
+                    sumLX = sum(LX);
+                    sumLY = sum(LY);
+                    sumLXLY = sum(LX .* LY);
+                    sumLX2 = sum(LX.^2);
+
+                    % Tính hệ số hồi quy
+                    b = (n*sumLXLY - sumLX*sumLY) / (n*sumLX2 - sumLX^2);
+                    A = (sumLY - b*sumLX) / n;
+                    a = exp(A);  % Vì A = ln(a)
+
+                    % Tính y theo mô hình y = a x^b
+                    yfit = a * (X.^b);
+
+                    % Tính R2
+                    st = sum((Y - mean(Y)).^2);
+                    sr = sum((Y - yfit).^2);
+                    r2 = 1 - sr/st;
+
+                    eqStr = sprintf('y = %.4f * x^{%.4f}', a, b);
+
+                case 'Logarit'
+                    if any(X <= 0)
+                        uialert(app.UIFigure,'X phải > 0 cho hồi quy logarit','Lỗi');
+                        return;
+                    end
+
+                    % Hồi quy dạng y = a + b ln(x)
+                    L = log(X);
+                    p = polyfit(L, Y, 1);
+                    b = p(1);
+                    a = p(2);
+
+                    % Tính giá trị y hồi quy
+                    yfit = a + b * log(X);
+
+                    % R2
+                    st = sum((Y - mean(Y)).^2);
+                    sr = sum((Y - yfit).^2);
+                    r2 = 1 - sr/st;
+
+                    eqStr = sprintf('y = %.4f + %.4f ln(x)', a, b);
+            end
+
+            % ---- Hiển thị kết quả ----
+            app.KetquansEditField.Value = eqStr;
+            app.R2EditField.Value = num2str(r2);
+
+            % ---- Vẽ đồ thị ----
+            plot(app.UIAxes, X, Y, 'bo', 'MarkerSize', 8);
+            hold(app.UIAxes, 'on');
+            plot(app.UIAxes, X, yfit, 'r-', 'LineWidth', 1.5);
+            hold(app.UIAxes, 'off');
+            legend(app.UIAxes, 'Dữ liệu', 'Hồi quy');
+
+        end
+
+        % Button pushed function: DonButton
+        function DonButtonPushed(app, event)
+            X = str2num(app.XEditField.Value);
+            Y = str2num(app.YEditField.Value);
+            x0 = str2double(app.GitrcndonEditField.Value);
+            type = app.DropDown.Value;
+
+            n = length(X);
+
+            if length(X) ~= length(Y)
+                uialert(app.UIFigure,'X và Y phải cùng số phần tử','Lỗi');
+                return;
+            end
+
+            switch type
+
+                %% =================== 1. Tuyến tính: y = a1*x + a0 ===================
+                case 'Tuyến tính'
+
+                    Sx  = sum(X);
+                    Sy  = sum(Y);
+                    Sxx = sum(X.^2);
+                    Sxy = sum(X.*Y);
+
+                    a1 = (n*Sxy - Sx*Sy) / (n*Sxx - Sx^2);
+                    a0 = (Sy - a1*Sx) / n;
+
+                    y0 = a1*x0 + a0;
+
+
+
+                    %% =================== 2. Hàm mũ: y = a * x^b ===================
+                case 'Hàm mũ'
+
+                    if any(X <= 0) || any(Y <= 0)
+                        uialert(app.UIFigure,'X và Y phải > 0 cho mô hình y=a*x^b','Lỗi');
+                        return;
+                    end
+
+                    Lx = log(X);
+                    Ly = log(Y);
+
+                    Sx  = sum(Lx);
+                    Sy  = sum(Ly);
+                    Sxx = sum(Lx.^2);
+                    Sxy = sum(Lx.*Ly);
+
+                    b = (n*Sxy - Sx*Sy) / (n*Sxx - Sx^2);
+                    A = (Sy - b*Sx)/n;
+                    a = exp(A);
+
+                    y0 = a * (x0^b);
+
+
+
+                    %% =================== 3. Logarit: y = a + b ln(x) ===================
+                case 'Logarit'
+
+                    if any(X <= 0) || x0 <= 0
+                        uialert(app.UIFigure,'X và x0 phải > 0 cho hàm logarit','Lỗi');
+                        return;
+                    end
+
+                    L = log(X);
+
+                    Sx  = sum(L);
+                    Sy  = sum(Y);
+                    Sxx = sum(L.^2);
+                    Sxy = sum(L.*Y);
+
+                    b = (n*Sxy - Sx*Sy) / (n*Sxx - Sx^2);
+                    a = (Sy - b*Sx) / n;
+
+                    y0 = a + b*log(x0);
+
+            end
+
+            % Hiển thị kết quả dự đoán
+            app.KtqudonEditField.Value = num2str(y0);
+
+            % Vẽ dấu * vàng
+            hold(app.UIAxes,'on');
+            plot(app.UIAxes, x0, y0, '*', 'MarkerSize', 12, 'Color', [1 1 0]);
+            hold(app.UIAxes,'off');
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Title')
+            xlabel(app.UIAxes, 'X')
+            ylabel(app.UIAxes, 'Y')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.Position = [23 183 596 279];
+
+            % Create XEditFieldLabel
+            app.XEditFieldLabel = uilabel(app.UIFigure);
+            app.XEditFieldLabel.HorizontalAlignment = 'right';
+            app.XEditFieldLabel.Position = [40 92 25 22];
+            app.XEditFieldLabel.Text = 'X';
+
+            % Create XEditField
+            app.XEditField = uieditfield(app.UIFigure, 'text');
+            app.XEditField.ValueChangedFcn = createCallbackFcn(app, @XEditFieldValueChanged, true);
+            app.XEditField.Position = [80 92 140 22];
+            app.XEditField.Value = '1 2 3 4 5 6 7 8 9';
+
+            % Create YEditFieldLabel
+            app.YEditFieldLabel = uilabel(app.UIFigure);
+            app.YEditFieldLabel.HorizontalAlignment = 'right';
+            app.YEditFieldLabel.Position = [40 64 25 22];
+            app.YEditFieldLabel.Text = 'Y';
+
+            % Create YEditField
+            app.YEditField = uieditfield(app.UIFigure, 'text');
+            app.YEditField.ValueChangedFcn = createCallbackFcn(app, @YEditFieldValueChanged, true);
+            app.YEditField.Position = [80 64 140 22];
+            app.YEditField.Value = '1 1.5 2 3 4 5 8 10 13';
+
+            % Create DropDownLabel
+            app.DropDownLabel = uilabel(app.UIFigure);
+            app.DropDownLabel.HorizontalAlignment = 'right';
+            app.DropDownLabel.Position = [23 149 65 22];
+            app.DropDownLabel.Text = 'Drop Down';
+
+            % Create DropDown
+            app.DropDown = uidropdown(app.UIFigure);
+            app.DropDown.Items = {'Tuyến tính', 'Hàm mũ', 'Logarit'};
+            app.DropDown.Position = [103 135 117 49];
+            app.DropDown.Value = 'Tuyến tính';
+
+            % Create KtquhiquyLabel
+            app.KtquhiquyLabel = uilabel(app.UIFigure);
+            app.KtquhiquyLabel.HorizontalAlignment = 'right';
+            app.KtquhiquyLabel.Position = [231 114 162 22];
+            app.KtquhiquyLabel.Text = 'Kết quả phương trình hồi quy';
+
+            % Create KetquansEditField
+            app.KetquansEditField = uieditfield(app.UIFigure, 'text');
+            app.KetquansEditField.Position = [231 93 164 22];
+
+            % Create ChyButton
+            app.ChyButton = uibutton(app.UIFigure, 'push');
+            app.ChyButton.ButtonPushedFcn = createCallbackFcn(app, @ChyButtonPushed, true);
+            app.ChyButton.Position = [231 32 162 54];
+            app.ChyButton.Text = 'Chạy';
+
+            % Create GitrcndonEditFieldLabel
+            app.GitrcndonEditFieldLabel = uilabel(app.UIFigure);
+            app.GitrcndonEditFieldLabel.HorizontalAlignment = 'right';
+            app.GitrcndonEditFieldLabel.Position = [409 93 108 22];
+            app.GitrcndonEditFieldLabel.Text = 'Giá trị cần dự đoán';
+
+            % Create GitrcndonEditField
+            app.GitrcndonEditField = uieditfield(app.UIFigure, 'text');
+            app.GitrcndonEditField.Position = [532 93 100 22];
+
+            % Create KtqudonEditFieldLabel
+            app.KtqudonEditFieldLabel = uilabel(app.UIFigure);
+            app.KtqudonEditFieldLabel.HorizontalAlignment = 'right';
+            app.KtqudonEditFieldLabel.Position = [423 64 94 22];
+            app.KtqudonEditFieldLabel.Text = 'Kết quả dự đoán';
+
+            % Create KtqudonEditField
+            app.KtqudonEditField = uieditfield(app.UIFigure, 'text');
+            app.KtqudonEditField.Position = [532 64 100 22];
+
+            % Create DonButton
+            app.DonButton = uibutton(app.UIFigure, 'push');
+            app.DonButton.ButtonPushedFcn = createCallbackFcn(app, @DonButtonPushed, true);
+            app.DonButton.Position = [532 32 100 23];
+            app.DonButton.Text = 'Dự đoán';
+
+            % Create R2EditFieldLabel
+            app.R2EditFieldLabel = uilabel(app.UIFigure);
+            app.R2EditFieldLabel.HorizontalAlignment = 'right';
+            app.R2EditFieldLabel.Position = [40 32 25 22];
+            app.R2EditFieldLabel.Text = 'R2';
+
+            % Create R2EditField
+            app.R2EditField = uieditfield(app.UIFigure, 'text');
+            app.R2EditField.Position = [80 32 138 22];
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = Hoiquy1
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
