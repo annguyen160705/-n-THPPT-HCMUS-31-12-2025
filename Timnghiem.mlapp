@@ -1,0 +1,494 @@
+classdef timnghiem2 < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                     matlab.ui.Figure
+        BiTonTmNghimLabel            matlab.ui.control.Label
+        solanlapEditField            matlab.ui.control.NumericEditField
+        slnlpEditFieldLabel          matlab.ui.control.Label
+        ketquanghiemEditField        matlab.ui.control.NumericEditField
+        ktqunghimEditFieldLabel      matlab.ui.control.Label
+        batdauButton                 matlab.ui.control.Button
+        chonphuongphaptimDropDown    matlab.ui.control.DropDown
+        chnphngphptmDropDownLabel    matlab.ui.control.Label
+        nhapsaisochophepEditField    matlab.ui.control.NumericEditField
+        nhpsaischophpEditFieldLabel  matlab.ui.control.Label
+        khongphnlynghimLabel         matlab.ui.control.Label
+        denbEditField                matlab.ui.control.NumericEditField
+        nbEditFieldLabel             matlab.ui.control.Label
+        tuaEditField                 matlab.ui.control.NumericEditField
+        taEditFieldLabel             matlab.ui.control.Label
+        nhapphuongtrinhEditField     matlab.ui.control.EditField
+        nhpphngtrnhEditFieldLabel    matlab.ui.control.Label
+        UIAxes                       matlab.ui.control.UIAxes
+    end
+
+
+
+    methods (Access = private)
+
+        function [c,n] = chiadoi(app, f, a, b, eps)
+            n = 0;
+            % Basic checks
+            try
+                fa = f(a); fb = f(b);
+            catch
+                c = NaN; n = 0; return;
+            end
+            if ~isfinite(fa) || ~isfinite(fb)
+                c = NaN; n = 0; return;
+            end
+            if fa * fb > 0
+                c = NaN; n = 0; return;
+            end
+
+            maxIter = 10000;
+            while true
+                n = n + 1;
+                c = (a + b) / 2;
+                fc = f(c);
+
+                % Nếu giá trị f(c) đủ nhỏ thì coi là nghiệm
+                if ~isnan(fc) && abs(fc) < eps
+                    return;
+                end
+
+                % Dừng theo khoảng [a,b]
+                if (b - a) / 2 < eps
+                    return;
+                end
+
+                if fa * fc < 0
+                    b = c;
+                    fb = fc;
+                else
+                    a = c;
+                    fa = fc;
+                end
+
+                if n >= maxIter
+                    c = NaN;
+                    return;
+                end
+            end
+        end
+
+        function [x1,n] = lap(app, f, x0, eps)
+            n = 0;
+            maxIter = 10000;
+            x_old = x0;
+
+            % Try a list of relaxations (lambda) to improve chance hội tụ
+            lambda_list = [1, 0.8, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01];
+
+            for L = lambda_list
+                x_old = x0;
+                n_local = 0;
+                while true
+                    n_local = n_local + 1;
+                    % fixed-point style: x_new = x_old - L * f(x_old)
+                    % (L = 1 would be plain Newton-like single-step if f ~ derivative)
+                    try
+                        fx = f(x_old);
+                    catch
+                        break;
+                    end
+
+                    x_new = x_old - L * fx;
+
+                    % kiểm tra hội tụ
+                    if ~isfinite(x_new)
+                        break;
+                    end
+
+                    if abs(x_new - x_old) < eps
+                        x1 = x_new;
+                        n = n_local;
+                        return;
+                    end
+
+                    x_old = x_new;
+
+                    if n_local >= maxIter
+                        break;
+                    end
+                end
+            end
+
+            % Nếu không hội tụ
+            x1 = NaN;
+            n = 0;
+        end
+
+
+        function [x1,n] = tieptuyen(app, f, x0, eps)
+            n = 0;
+            maxIter = 1000;
+            x_old = x0;
+
+            for k = 1:maxIter
+                n = n + 1;
+
+                % numeric derivative central difference
+                h = 1e-6 * max(1, abs(x_old));
+                try
+                    f_plus = f(x_old + h);
+                    f_minus = f(x_old - h);
+                    f_xold = f(x_old);
+                catch
+                    x1 = NaN;
+                    return;
+                end
+
+                if ~isfinite(f_plus) || ~isfinite(f_minus) || ~isfinite(f_xold)
+                    x1 = NaN;
+                    return;
+                end
+
+                df = (f_plus - f_minus) / (2*h);
+
+                % nếu đạo hàm quá nhỏ -> không chia được
+                if abs(df) < 1e-14
+                    x1 = NaN;
+                    return;
+                end
+
+                x_new = x_old - f_xold / df;
+
+                if ~isfinite(x_new)
+                    x1 = NaN;
+                    return;
+                end
+
+                if abs(x_new - x_old) < eps
+                    x1 = x_new;
+                    return;
+                end
+
+                x_old = x_new;
+            end
+
+            % không hội tụ
+            x1 = NaN;
+        end
+
+    end
+
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: batdauButton
+        function batdauButtonPushed(app, event)
+            syms x
+
+            % --- Lấy chuỗi từ EditField và chuyển sang char ---
+            str_raw = app.nhapphuongtrinhEditField.Value;
+            if isa(str_raw,'string')
+                str_raw = char(str_raw);
+            end
+            if ~ischar(str_raw)
+                str_raw = num2str(str_raw);
+            end
+
+            % --- Sanitize chuỗi: thay các ký tự Unicode phổ biến ---
+            s = str_raw;
+            s = strrep(s, char(8211), '-');  % en-dash → minus
+            s = strrep(s, char(8722), '-');  % minus sign → ascii -
+            s = strrep(s, '×', '*');         % multiplication sign
+            s = strrep(s, '·', '*');         % middle dot
+            s = strrep(s, '÷', '/');         % division sign
+            s = regexprep(s, '[^\x20-\x7E]', ''); % remove non-printable
+
+            % Chèn dấu nhân trong các trường hợp thường gặp
+            s = regexprep(s, '(\d)\s*([A-Za-z\(])', '$1*$2');
+            s = regexprep(s, '([A-Za-z\)])\s*(\d)', '$1*$2');
+            s = regexprep(s, '(\d)\s*\(', '$1*(');
+            s = regexprep(s, '\)\s*(\d)', ')*$1');
+
+            % Hiện chuỗi đã làm sạch (debug)
+            fprintf('Raw input: "%s"\n', str_raw);
+            fprintf('Sanitized: "%s"\n', s);
+
+            % Chuyển thành biểu thức symbolic an toàn
+            try
+                f_sym = str2sym(s);
+            catch ME
+                uialert(app.UIFigure, ...
+                    sprintf('Không thể phân tích phương trình. Kiểm tra cú pháp.\nChi tiết: %s', ME.message), ...
+                    'Lỗi phân tích phương trình');
+                disp('Sanitized string that failed:');
+                disp(s);
+                return;
+            end
+
+            % chuyển thành function handle
+            try
+                f = matlabFunction(f_sym, 'Vars', x);
+            catch ME
+                uialert(app.UIFigure, sprintf('Không thể tạo hàm số từ biểu thức: %s', ME.message), 'Lỗi');
+                return;
+            end
+
+            % Lấy a,b,eps
+            a = app.tuaEditField.Value;
+            b = app.denbEditField.Value;
+            eps = app.nhapsaisochophepEditField.Value;
+
+            % Kiểm tra eps hợp lệ
+            if ~(eps > 0)
+                uialert(app.UIFigure, 'Nhập sai số (epsilon) phải > 0', 'Lỗi tham số');
+                return;
+            end
+
+            % Vẽ đồ thị
+            try
+                cla(app.UIAxes);
+                fplot(app.UIAxes, f, [a b], 'LineWidth', 1.2);
+                title(app.UIAxes, sprintf('f(x) = %s', s), 'Interpreter','none');
+                xlabel(app.UIAxes,'x'); ylabel(app.UIAxes,'f(x)');
+                grid(app.UIAxes,'on');
+            catch
+                uialert(app.UIFigure,'Không thể vẽ hàm trên khoảng đã cho','Lỗi vẽ');
+                return;
+            end
+
+            % Chọn phương pháp
+            method = app.chonphuongphaptimDropDown.Value;
+            root = NaN; iter = 0;
+
+            try
+                switch method
+                    case 'chia đôi'
+                        % kiểm tra hợp lệ
+                        try
+                            fa = f(a); fb = f(b);
+                        catch
+                            uialert(app.UIFigure,'Giá trị f(a) hoặc f(b) không thể tính','Lỗi');
+                            return;
+                        end
+                        if ~isfinite(fa) || ~isfinite(fb)
+                            uialert(app.UIFigure,'Giá trị f(a) hoặc f(b) không hợp lệ','Lỗi');
+                            return;
+                        end
+                        if a >= b
+                            uialert(app.UIFigure,'a phải nhỏ hơn b','Lỗi');
+                            return;
+                        end
+                        if fa * fb > 0
+                            uialert(app.UIFigure,'f(a) và f(b) phải khác dấu để dùng chia đôi','Lỗi');
+                            return;
+                        end
+                        [root, iter] = app.chiadoi(f, a, b, eps);
+
+                    case 'lặp'
+                        x0 = a;
+                        [root, iter] = app.lap(f, x0, eps);
+
+                    case 'newton'
+                        x0 = a;
+                        [root, iter] = app.tieptuyen(f, x0, eps);
+
+                    otherwise
+                        root = NaN; iter = 0;
+                end
+            catch ME
+                uialert(app.UIFigure, sprintf('Lỗi khi chạy phương pháp: %s', ME.message), 'Lỗi');
+                root = NaN; iter = 0;
+            end
+
+            % Hiển thị kết quả
+            % luôn cập nhật số lần lặp (nếu bằng 0 sẽ hiển thị 0)
+            try
+                app.solanlapEditField.Value = iter;
+            catch
+                % nếu không thể gán (ví dụ control bị disable), bỏ qua
+            end
+
+            % Xóa mọi điểm đánh dấu nghiệm cũ
+            old = findobj(app.UIAxes, 'Tag', 'RootMarker');
+            if ~isempty(old)
+                delete(old);
+            end
+            oldtxt = findobj(app.UIAxes, 'Tag', 'RootMarkerText');
+            if ~isempty(oldtxt)
+                delete(oldtxt);
+            end
+
+            if isnan(root)
+                app.ketquanghiemEditField.Value = 0;
+                uialert(app.UIFigure,'Phương pháp không hội tụ hoặc không tìm thấy nghiệm trong điều kiện cho trước','Kết quả');
+            else
+                app.ketquanghiemEditField.Value = root;
+
+                % Vẽ nghiệm tại (root, f(root))
+                try
+                    fr = f(root);
+                    hold(app.UIAxes, 'on');
+                    plot(app.UIAxes, root, fr, 'ro', 'MarkerSize', 8, 'MarkerFaceColor', 'r', 'Tag', 'RootMarker');
+                    % thêm nhãn giá trị nghiệm
+                    txt = sprintf('  x=%.6g\n  f=%.6g', root, fr);
+                    text(app.UIAxes, root, fr, txt, 'FontSize',10, 'Color','r', 'Tag','RootMarkerText');
+                    hold(app.UIAxes, 'off');
+                catch
+                    % nếu không vẽ được điểm (vd f(root) không tính được), bỏ qua vẽ
+                end
+            end
+
+        end
+
+        % Value changed function: chonphuongphaptimDropDown
+        function chonphuongphaptimDropDownValueChanged2(app, event)
+            method = app.chonphuongphaptimDropDown.Value;
+            if strcmp(method, 'chia đôi')
+                app.denbEditField.Enable = 'on';
+            else
+                app.denbEditField.Enable = 'off';
+                a = app.tuaEditField.Value;
+                app.denbEditField.Value = a + 5;
+            end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Title')
+            xlabel(app.UIAxes, 'X')
+            ylabel(app.UIAxes, 'Y')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.Position = [296 205 300 185];
+
+            % Create nhpphngtrnhEditFieldLabel
+            app.nhpphngtrnhEditFieldLabel = uilabel(app.UIFigure);
+            app.nhpphngtrnhEditFieldLabel.HorizontalAlignment = 'right';
+            app.nhpphngtrnhEditFieldLabel.Position = [40 368 105 22];
+            app.nhpphngtrnhEditFieldLabel.Text = 'nhập phương trình';
+
+            % Create nhapphuongtrinhEditField
+            app.nhapphuongtrinhEditField = uieditfield(app.UIFigure, 'text');
+            app.nhapphuongtrinhEditField.Position = [160 368 100 22];
+            app.nhapphuongtrinhEditField.Value = 'x^3 + x -1';
+
+            % Create taEditFieldLabel
+            app.taEditFieldLabel = uilabel(app.UIFigure);
+            app.taEditFieldLabel.HorizontalAlignment = 'right';
+            app.taEditFieldLabel.Position = [119 297 26 22];
+            app.taEditFieldLabel.Text = 'từ a';
+
+            % Create tuaEditField
+            app.tuaEditField = uieditfield(app.UIFigure, 'numeric');
+            app.tuaEditField.Position = [160 297 100 22];
+
+            % Create nbEditFieldLabel
+            app.nbEditFieldLabel = uilabel(app.UIFigure);
+            app.nbEditFieldLabel.HorizontalAlignment = 'right';
+            app.nbEditFieldLabel.Position = [107 259 38 22];
+            app.nbEditFieldLabel.Text = 'đến b ';
+
+            % Create denbEditField
+            app.denbEditField = uieditfield(app.UIFigure, 'numeric');
+            app.denbEditField.Position = [160 259 100 22];
+            app.denbEditField.Value = 1;
+
+            % Create khongphnlynghimLabel
+            app.khongphnlynghimLabel = uilabel(app.UIFigure);
+            app.khongphnlynghimLabel.Position = [62 333 132 22];
+            app.khongphnlynghimLabel.Text = 'khoảng phân ly nghiêm ';
+
+            % Create nhpsaischophpEditFieldLabel
+            app.nhpsaischophpEditFieldLabel = uilabel(app.UIFigure);
+            app.nhpsaischophpEditFieldLabel.HorizontalAlignment = 'right';
+            app.nhpsaischophpEditFieldLabel.Position = [26 213 119 22];
+            app.nhpsaischophpEditFieldLabel.Text = 'nhập sai số cho phép';
+
+            % Create nhapsaisochophepEditField
+            app.nhapsaisochophepEditField = uieditfield(app.UIFigure, 'numeric');
+            app.nhapsaisochophepEditField.Position = [160 213 100 22];
+            app.nhapsaisochophepEditField.Value = 0.003;
+
+            % Create chnphngphptmDropDownLabel
+            app.chnphngphptmDropDownLabel = uilabel(app.UIFigure);
+            app.chnphngphptmDropDownLabel.HorizontalAlignment = 'right';
+            app.chnphngphptmDropDownLabel.Position = [18 171 127 22];
+            app.chnphngphptmDropDownLabel.Text = 'chọn phương pháp tìm';
+
+            % Create chonphuongphaptimDropDown
+            app.chonphuongphaptimDropDown = uidropdown(app.UIFigure);
+            app.chonphuongphaptimDropDown.Items = {'chia đôi', 'lặp', 'newton'};
+            app.chonphuongphaptimDropDown.ValueChangedFcn = createCallbackFcn(app, @chonphuongphaptimDropDownValueChanged2, true);
+            app.chonphuongphaptimDropDown.Position = [160 171 100 22];
+            app.chonphuongphaptimDropDown.Value = 'chia đôi';
+
+            % Create batdauButton
+            app.batdauButton = uibutton(app.UIFigure, 'push');
+            app.batdauButton.ButtonPushedFcn = createCallbackFcn(app, @batdauButtonPushed, true);
+            app.batdauButton.Position = [89 107 100 22];
+            app.batdauButton.Text = 'bắt đầu ';
+
+            % Create ktqunghimEditFieldLabel
+            app.ktqunghimEditFieldLabel = uilabel(app.UIFigure);
+            app.ktqunghimEditFieldLabel.HorizontalAlignment = 'right';
+            app.ktqunghimEditFieldLabel.Position = [227 107 87 22];
+            app.ktqunghimEditFieldLabel.Text = 'kết quả nghiệm';
+
+            % Create ketquanghiemEditField
+            app.ketquanghiemEditField = uieditfield(app.UIFigure, 'numeric');
+            app.ketquanghiemEditField.Position = [329 107 100 22];
+
+            % Create slnlpEditFieldLabel
+            app.slnlpEditFieldLabel = uilabel(app.UIFigure);
+            app.slnlpEditFieldLabel.HorizontalAlignment = 'right';
+            app.slnlpEditFieldLabel.Position = [258 61 56 22];
+            app.slnlpEditFieldLabel.Text = 'số lần lập';
+
+            % Create solanlapEditField
+            app.solanlapEditField = uieditfield(app.UIFigure, 'numeric');
+            app.solanlapEditField.Position = [329 61 100 22];
+
+            % Create BiTonTmNghimLabel
+            app.BiTonTmNghimLabel = uilabel(app.UIFigure);
+            app.BiTonTmNghimLabel.FontSize = 18;
+            app.BiTonTmNghimLabel.Position = [195 432 182 23];
+            app.BiTonTmNghimLabel.Text = 'Bài Toán Tìm Nghiệm ';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = timnghiem2
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
