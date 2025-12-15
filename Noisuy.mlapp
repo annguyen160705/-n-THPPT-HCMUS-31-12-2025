@@ -1,0 +1,254 @@
+classdef Noisuy < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                        matlab.ui.Figure
+        NhapgiatrinsyEditField          matlab.ui.control.EditField
+        NhpgitrcnnisuyEditFieldLabel_2  matlab.ui.control.Label
+        KetquansEditField               matlab.ui.control.EditField
+        KtqunisuyEditFieldLabel_2       matlab.ui.control.Label
+        DulieuyEditField                matlab.ui.control.EditField
+        NhpliuxLabel_2                  matlab.ui.control.Label
+        DulieuxEditField                matlab.ui.control.EditField
+        NhpliuxLabel                    matlab.ui.control.Label
+        KQdathucnsEditField             matlab.ui.control.EditField
+        KtquathcnisuyEditFieldLabel     matlab.ui.control.Label
+        LagrangeButton                  matlab.ui.control.Button
+        NewtonButton                    matlab.ui.control.Button
+        ChonPPnsLabel                   matlab.ui.control.Label
+        UIAxes                          matlab.ui.control.UIAxes
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: NewtonButton
+        function NewtonButtonPushed(app, event)
+             % Đọc dữ liệu nhập
+            x_data = str2num(app.DulieuxEditField.Value);
+            y_data = str2num(app.DulieuyEditField.Value);
+            x_need = str2num(app.NhapgiatrinsyEditField.Value);    
+            
+            % Kiểm tra
+            if length(x_data) ~= length(y_data)
+                uialert(app.UIFigure,'Số phần tử x và y phải bằng nhau','Lỗi');
+                return;
+            end
+
+            % --- Tính bảng sai phân chia ---
+            n = length(x_data);
+            dd = y_data;
+            for j = 2:n
+                for i = n:-1:j
+                    dd(i) = (dd(i) - dd(i-1)) / (x_data(i) - x_data(i-j+1));
+                end
+            end
+
+            % --- Tạo đa thức dạng Symbol ---
+            syms x;
+            P = dd(n);
+            for k = n-1:-1:1
+                P = P * (x - x_data(k)) + dd(k);
+            end
+                     
+            P = expand(P);
+            
+            % Hiển thị đa thức ra EditField
+            app.KQdathucnsEditField.Value = char(vpa(P,6));
+            
+            % Giá trị tại điểm cần nội suy
+            result = double(subs(P, x, x_need));
+            app.KetquansEditField.Value = mat2str(result,6);
+
+            % Vẽ đồ thị
+            xmin = min([x_data x_need]);
+            xmax = max([x_data x_need]);
+            xx = linspace(xmin, xmax, 200);
+            yy = double(subs(P, x, xx));
+
+            plot(app.UIAxes, xx, yy,'LineWidth',2);
+            hold(app.UIAxes,'on');
+            plot(app.UIAxes, x_need, result, 'r*', 'MarkerSize',8, 'LineWidth',2); 
+            hold(app.UIAxes,'off');
+
+
+            title(app.UIAxes,'Nội suy Newton');
+            xlabel(app.UIAxes,'X');
+            ylabel(app.UIAxes,'Y');
+
+        end
+
+        % Button pushed function: LagrangeButton
+        function LagrangeButtonPushed(app, event)
+             % Đọc dữ liệu nhập
+            x_data = str2num(app.DulieuxEditField.Value);
+            y_data = str2num(app.DulieuyEditField.Value);
+            x_need = str2num(app.NhapgiatrinsyEditField.Value);  
+
+            % Kiểm tra
+            if length(x_data) ~= length(y_data)
+                uialert(app.UIFigure,'Số phần tử x và y phải bằng nhau','Lỗi');
+                return;
+            end
+
+            % --- Lagrange Symbol ---
+            syms x;
+            n = length(x_data);
+            P = 0;
+            for i = 1:n
+                Li = 1;
+                for j = 1:n
+                    if i ~= j
+                        Li = Li * (x - x_data(j)) / (x_data(i) - x_data(j));
+                    end
+                end
+                P = P + Li * y_data(i);
+            end
+            P = expand(P);
+
+            % Hiển thị đa thứcs
+            app.KQdathucnsEditField.Value = char(vpa(P,6));
+
+            % Giá trị nội suy tại x_need
+            result = double(subs(P, x, x_need));
+            app.KetquansEditField.Value = mat2str(result,6);
+
+            % Vẽ đồ thị
+            xmin = min([x_data x_need]);
+            xmax = max([x_data x_need]);
+            xx = linspace(xmin, xmax, 200);
+            yy = double(subs(P, x, xx));
+
+            plot(app.UIAxes, xx, yy,'LineWidth',2);
+            hold(app.UIAxes,'on');          
+            plot(app.UIAxes, x_need, result, 'r*', 'MarkerSize',8, 'LineWidth',2); 
+            hold(app.UIAxes,'off');
+
+            title(app.UIAxes,'Nội suy Lagrange');
+            xlabel(app.UIAxes,'X');
+            ylabel(app.UIAxes,'Y');
+
+      
+
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 761 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Title')
+            xlabel(app.UIAxes, 'X')
+            ylabel(app.UIAxes, 'Y')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.Position = [324 92 412 322];
+
+            % Create ChonPPnsLabel
+            app.ChonPPnsLabel = uilabel(app.UIFigure);
+            app.ChonPPnsLabel.Position = [102 81 154 22];
+            app.ChonPPnsLabel.Text = 'Chọn phương pháp nội suy:';
+
+            % Create NewtonButton
+            app.NewtonButton = uibutton(app.UIFigure, 'push');
+            app.NewtonButton.ButtonPushedFcn = createCallbackFcn(app, @NewtonButtonPushed, true);
+            app.NewtonButton.Position = [72 39 100 22];
+            app.NewtonButton.Text = ' Newton';
+
+            % Create LagrangeButton
+            app.LagrangeButton = uibutton(app.UIFigure, 'push');
+            app.LagrangeButton.ButtonPushedFcn = createCallbackFcn(app, @LagrangeButtonPushed, true);
+            app.LagrangeButton.Position = [194 39 100 22];
+            app.LagrangeButton.Text = 'Lagrange';
+
+            % Create KtquathcnisuyEditFieldLabel
+            app.KtquathcnisuyEditFieldLabel = uilabel(app.UIFigure);
+            app.KtquathcnisuyEditFieldLabel.HorizontalAlignment = 'right';
+            app.KtquathcnisuyEditFieldLabel.Position = [36 150 131 22];
+            app.KtquathcnisuyEditFieldLabel.Text = 'Kết quả đa thức nội suy';
+
+            % Create KQdathucnsEditField
+            app.KQdathucnsEditField = uieditfield(app.UIFigure, 'text');
+            app.KQdathucnsEditField.Position = [36 129 289 22];
+
+            % Create NhpliuxLabel
+            app.NhpliuxLabel = uilabel(app.UIFigure);
+            app.NhpliuxLabel.HorizontalAlignment = 'right';
+            app.NhpliuxLabel.Position = [36 403 85 22];
+            app.NhpliuxLabel.Text = 'Nhập đữ liệu x';
+
+            % Create DulieuxEditField
+            app.DulieuxEditField = uieditfield(app.UIFigure, 'text');
+            app.DulieuxEditField.Position = [36 372 259 22];
+            app.DulieuxEditField.Value = '0.1 0.2 0.3 0.4';
+
+            % Create NhpliuxLabel_2
+            app.NhpliuxLabel_2 = uilabel(app.UIFigure);
+            app.NhpliuxLabel_2.HorizontalAlignment = 'right';
+            app.NhpliuxLabel_2.Position = [37 340 83 22];
+            app.NhpliuxLabel_2.Text = 'Nhập đữ liệu y';
+
+            % Create DulieuyEditField
+            app.DulieuyEditField = uieditfield(app.UIFigure, 'text');
+            app.DulieuyEditField.Position = [37 309 259 22];
+            app.DulieuyEditField.Value = '0.09983 0.19867 0.29552 0.38942';
+
+            % Create KtqunisuyEditFieldLabel_2
+            app.KtqunisuyEditFieldLabel_2 = uilabel(app.UIFigure);
+            app.KtqunisuyEditFieldLabel_2.HorizontalAlignment = 'right';
+            app.KtqunisuyEditFieldLabel_2.Position = [37 214 88 22];
+            app.KtqunisuyEditFieldLabel_2.Text = 'Kết quả nội suy';
+
+            % Create KetquansEditField
+            app.KetquansEditField = uieditfield(app.UIFigure, 'text');
+            app.KetquansEditField.Position = [37 193 260 22];
+
+            % Create NhpgitrcnnisuyEditFieldLabel_2
+            app.NhpgitrcnnisuyEditFieldLabel_2 = uilabel(app.UIFigure);
+            app.NhpgitrcnnisuyEditFieldLabel_2.HorizontalAlignment = 'right';
+            app.NhpgitrcnnisuyEditFieldLabel_2.Position = [36 272 130 22];
+            app.NhpgitrcnnisuyEditFieldLabel_2.Text = 'Nhập giá trị cần nội suy';
+
+            % Create NhapgiatrinsyEditField
+            app.NhapgiatrinsyEditField = uieditfield(app.UIFigure, 'text');
+            app.NhapgiatrinsyEditField.Position = [36 250 260 22];
+            app.NhapgiatrinsyEditField.Value = '0.14 0.46';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = Noisuy
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
