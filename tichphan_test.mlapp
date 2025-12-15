@@ -1,0 +1,362 @@
+classdef tichphan < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                matlab.ui.Figure
+        NoteKhinhpdliudangxvaythinhpNkhngcotacdungviNctinhtngslngimx1ivinhphamsthiNlabtbucvchngtrnhcnbitsontnhtchphntheotngphngphapcuthLabel  matlab.ui.control.Label
+        khisdungpphinhthangthiNphailasnguyndngLabel  matlab.ui.control.Label
+        khisdungppsimpson13thiNphaichnLabel  matlab.ui.control.Label
+        khisdungppsimpson38thiNphaichiahtcho3Label  matlab.ui.control.Label
+        PPsimpson38Button       matlab.ui.control.Button
+        PPsimpson13Button       matlab.ui.control.Button
+        PPhinhthangButton       matlab.ui.control.Button
+        KtquaEditField          matlab.ui.control.EditField
+        KtquaEditFieldLabel     matlab.ui.control.Label
+        NhpNEditField           matlab.ui.control.EditField
+        NhpNEditFieldLabel      matlab.ui.control.Label
+        NhpcntinhtichphntheodangabEditField  matlab.ui.control.EditField
+        NhpcntinhtichphnLabel   matlab.ui.control.Label
+        HocLabel                matlab.ui.control.Label
+        NhphamsEditField        matlab.ui.control.EditField
+        NhphamsEditFieldLabel   matlab.ui.control.Label
+        NhpdliuyEditField       matlab.ui.control.EditField
+        NhpdliuyEditFieldLabel  matlab.ui.control.Label
+        NhpdliuxEditField       matlab.ui.control.EditField
+        NhpdliuxEditFieldLabel  matlab.ui.control.Label
+    end
+
+    
+    methods (Access = private)
+        
+        function [x, y, mode] = getData(app)
+                % Kiểm tra người dùng nhập theo dạng nào
+
+    hasFunction = ~isempty(app.NhphamsEditField.Value);   % có nhập hàm hay không
+    hasXY = ~isempty(app.NhpdliuxEditField.Value) && ~isempty(app.NhpdliuyEditField.Value);
+
+% ===== TRƯỜNG HỢP 1: NHẬP HÀM SỐ =====
+if hasFunction
+    mode = 'func';
+
+    % Lấy hàm f(x)
+    try
+        f = str2func(['@(x)', app.NhphamsEditField.Value]);
+    catch
+        app.KtquaEditField.Value = 'Hàm nhập không hợp lệ!';
+        x = []; y = [];
+        return;
+    end
+
+    % Lấy a, b từ chuỗi nhập
+    c = str2num(app.NhpcntinhtichphntheodangabEditField.Value);
+    if numel(c) ~= 2
+        app.KtquaEditField.Value = 'Cận tích phân phải gồm 2 số!';
+        x = []; y = [];
+        return;
+    end
+    a = c(1);
+    b = c(2);
+
+    % Lấy N
+    N = str2double(app.NhpNEditField.Value);
+    if isnan(N) || N <= 0 || floor(N)~=N
+        app.KtquaEditField.Value = 'N phải là số nguyên dương!';
+        x = []; y = [];
+        return;
+    end 
+    
+
+    % Tạo dữ liệu
+    x = linspace(a, b, N+1);
+    y = f(x);
+    return;
+end
+
+
+    % ===== TRƯỜNG HỢP 2: NHẬP DỮ LIỆU X-Y =====
+    if hasXY
+        mode = 'data';
+
+        try
+            x = str2num(app.NhpdliuxEditField.Value); %#ok<ST2NM>
+            y = str2num(app.NhpdliuyEditField.Value); %#ok<ST2NM>
+        catch
+            app.KtquaEditField.Value = 'Dữ liệu x hoặc y không hợp lệ!';
+            x = []; y = [];
+            return;
+        end
+
+        if length(x) ~= length(y)
+            app.KtquaEditField.Value = 'x và y phải có cùng số phần tử!';
+            x = []; y = [];
+            return;
+        end
+
+        return;
+    end
+
+
+    % ===== KHÔNG NHẬP GÌ =====
+    app.KtquaEditField.Value = 'Chưa nhập dữ liệu hoặc hàm!';
+    x = []; y = [];
+    mode = '';
+        end
+       % Simpson 1/3
+       function I = simpson13(~, x, y)
+    n = length(x) - 1;
+    if mod(n, 2) ~= 0
+        error('Simpson 1/3 yêu cầu n chẵn');
+    end
+    h = (x(end) - x(1)) / n;
+    I = y(1) + y(end) + 4*sum(y(2:2:end-1)) + 2*sum(y(3:2:end-2));
+    I = I * h / 3;
+end
+
+        % Simpson 3/8
+        function I = simpson38(~, x, y)
+    n = length(x) - 1;
+    if mod(n,3) ~= 0
+        error('Simpson 3/8 yêu cầu n chia hết cho 3');
+    end
+    h = (x(end) - x(1)) / n;
+    I = y(1) + y(end);
+    for i = 2:n
+        if mod(i-1,3)==0
+            I = I + 2*y(i);
+        else
+            I = I + 3*y(i);
+        end
+    end
+    I = I * 3 * h / 8;
+        end
+    end
+
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: PPhinhthangButton
+        function PPhinhthangButtonPushed(app, event)
+        [x, y, mode] = app.getData();
+
+        if isempty(x) || isempty(y)
+        %app.KtquaEditField.Value = 'Lỗi dữ liệu';
+        return;
+        end
+
+        % Nếu đang dùng hàm → cần N
+        if mode == "func"
+        N = str2double(app.NhpNEditField.Value);
+        if isnan(N) || N <= 0 || floor(N) ~= N
+            app.KtquaEditField.Value = 'N phải là số nguyên dương';
+            return;
+        end
+        end
+
+        result = trapz(x, y);
+        app.KtquaEditField.Value = num2str(result);
+
+        end
+
+        % Button pushed function: PPsimpson13Button
+        function PPsimpson13ButtonPushed(app, event)
+        [x, y, mode] = app.getData();
+
+        if isempty(x) || isempty(y)
+        %app.KtquaEditField.Value = 'Lỗi dữ liệu';
+        return;
+        end
+
+        if mode == "func"
+        N = str2double(app.NhpNEditField.Value);
+        if isnan(N) || N <= 0 || floor(N) ~= N
+            app.KtquaEditField.Value = 'N phải là số chẵn';
+            return;
+        end
+        end
+
+        try
+        result = app.simpson13(x, y);
+        app.KtquaEditField.Value = num2str(result);
+        catch ME
+        app.KtquaEditField.Value = ME.message;
+        end
+        
+        end
+
+        % Button pushed function: PPsimpson38Button
+        function PPsimpson38ButtonPushed(app, event)
+        [x, y, mode] = app.getData();
+
+        if isempty(x) || isempty(y)
+        %    app.KtquaEditField.Value = 'Lỗi dữ liệu';
+        return;
+        end
+
+        if mode == "func"
+            N = str2double(app.NhpNEditField.Value);
+        if isnan(N) || N <= 0 || floor(N) ~= N
+            app.KtquaEditField.Value = 'N phải là số chia hết cho 3';
+            return;
+        end
+        end
+
+        try
+            result = app.simpson38(x, y);
+            app.KtquaEditField.Value = num2str(result);
+        catch ME
+            app.KtquaEditField.Value = ME.message;
+        end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create NhpdliuxEditFieldLabel
+            app.NhpdliuxEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuxEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuxEditFieldLabel.Position = [16 394 86 22];
+            app.NhpdliuxEditFieldLabel.Text = 'Nhập dữ liệu x ';
+
+            % Create NhpdliuxEditField
+            app.NhpdliuxEditField = uieditfield(app.UIFigure, 'text');
+            app.NhpdliuxEditField.Position = [106 394 100 22];
+            app.NhpdliuxEditField.Value = '1 2 3 4 5 6 7';
+
+            % Create NhpdliuyEditFieldLabel
+            app.NhpdliuyEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpdliuyEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpdliuyEditFieldLabel.Position = [16 330 83 22];
+            app.NhpdliuyEditFieldLabel.Text = 'Nhập dữ liệu y';
+
+            % Create NhpdliuyEditField
+            app.NhpdliuyEditField = uieditfield(app.UIFigure, 'text');
+            app.NhpdliuyEditField.Position = [106 330 100 22];
+            app.NhpdliuyEditField.Value = '3 5 7 9 11 13 15';
+
+            % Create NhphamsEditFieldLabel
+            app.NhphamsEditFieldLabel = uilabel(app.UIFigure);
+            app.NhphamsEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhphamsEditFieldLabel.Position = [16 248 76 22];
+            app.NhphamsEditFieldLabel.Text = 'Nhập hàm số';
+
+            % Create NhphamsEditField
+            app.NhphamsEditField = uieditfield(app.UIFigure, 'text');
+            app.NhphamsEditField.Position = [111 248 100 22];
+
+            % Create HocLabel
+            app.HocLabel = uilabel(app.UIFigure);
+            app.HocLabel.Position = [85 290 33 22];
+            app.HocLabel.Text = 'Hoặc';
+
+            % Create NhpcntinhtichphnLabel
+            app.NhpcntinhtichphnLabel = uilabel(app.UIFigure);
+            app.NhpcntinhtichphnLabel.Position = [223 372 85 44];
+            app.NhpcntinhtichphnLabel.Text = {'Nhập cận để'; 'tính tích phân '; 'theo dạng [a b]'};
+
+            % Create NhpcntinhtichphntheodangabEditField
+            app.NhpcntinhtichphntheodangabEditField = uieditfield(app.UIFigure, 'text');
+            app.NhpcntinhtichphntheodangabEditField.Position = [318 383 100 22];
+            app.NhpcntinhtichphntheodangabEditField.Value = '1 5';
+
+            % Create NhpNEditFieldLabel
+            app.NhpNEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpNEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpNEditFieldLabel.Position = [224 330 46 22];
+            app.NhpNEditFieldLabel.Text = 'Nhập N';
+
+            % Create NhpNEditField
+            app.NhpNEditField = uieditfield(app.UIFigure, 'text');
+            app.NhpNEditField.Position = [318 330 100 22];
+            app.NhpNEditField.Value = '4';
+
+            % Create KtquaEditFieldLabel
+            app.KtquaEditFieldLabel = uilabel(app.UIFigure);
+            app.KtquaEditFieldLabel.HorizontalAlignment = 'center';
+            app.KtquaEditFieldLabel.Position = [85 179 46 22];
+            app.KtquaEditFieldLabel.Text = 'Kết quả';
+
+            % Create KtquaEditField
+            app.KtquaEditField = uieditfield(app.UIFigure, 'text');
+            app.KtquaEditField.Position = [142 167 244 46];
+
+            % Create PPhinhthangButton
+            app.PPhinhthangButton = uibutton(app.UIFigure, 'push');
+            app.PPhinhthangButton.ButtonPushedFcn = createCallbackFcn(app, @PPhinhthangButtonPushed, true);
+            app.PPhinhthangButton.Position = [500 415 100 23];
+            app.PPhinhthangButton.Text = 'PP hình thang';
+
+            % Create PPsimpson13Button
+            app.PPsimpson13Button = uibutton(app.UIFigure, 'push');
+            app.PPsimpson13Button.ButtonPushedFcn = createCallbackFcn(app, @PPsimpson13ButtonPushed, true);
+            app.PPsimpson13Button.Position = [500 303 100 23];
+            app.PPsimpson13Button.Text = 'PP simpson 1/3';
+
+            % Create PPsimpson38Button
+            app.PPsimpson38Button = uibutton(app.UIFigure, 'push');
+            app.PPsimpson38Button.ButtonPushedFcn = createCallbackFcn(app, @PPsimpson38ButtonPushed, true);
+            app.PPsimpson38Button.Position = [500 211 100 23];
+            app.PPsimpson38Button.Text = 'PP simpson 3/8';
+
+            % Create khisdungppsimpson38thiNphaichiahtcho3Label
+            app.khisdungppsimpson38thiNphaichiahtcho3Label = uilabel(app.UIFigure);
+            app.khisdungppsimpson38thiNphaichiahtcho3Label.HorizontalAlignment = 'center';
+            app.khisdungppsimpson38thiNphaichiahtcho3Label.Position = [478 155 143 44];
+            app.khisdungppsimpson38thiNphaichiahtcho3Label.Text = {'khi sử dụng pp simpson'; ' 3/8 thì N phải chia '; 'hết cho 3'};
+
+            % Create khisdungppsimpson13thiNphaichnLabel
+            app.khisdungppsimpson13thiNphaichnLabel = uilabel(app.UIFigure);
+            app.khisdungppsimpson13thiNphaichnLabel.HorizontalAlignment = 'center';
+            app.khisdungppsimpson13thiNphaichnLabel.Position = [478 248 143 44];
+            app.khisdungppsimpson13thiNphaichnLabel.Text = {'khi sử dụng pp simpson'; ' 1/3 thì N phải chẵn'};
+
+            % Create khisdungpphinhthangthiNphailasnguyndngLabel
+            app.khisdungpphinhthangthiNphailasnguyndngLabel = uilabel(app.UIFigure);
+            app.khisdungpphinhthangthiNphailasnguyndngLabel.HorizontalAlignment = 'center';
+            app.khisdungpphinhthangthiNphailasnguyndngLabel.Position = [488 351 133 44];
+            app.khisdungpphinhthangthiNphailasnguyndngLabel.Text = {'khi sử dụng pp hình '; 'thang thì N phải là số '; 'nguyên dương'};
+
+            % Create NoteKhinhpdliudangxvaythinhpNkhngcotacdungviNctinhtngslngimx1ivinhphamsthiNlabtbucvchngtrnhcnbitsontnhtchphntheotngphngphapcuthLabel
+            app.NoteKhinhpdliudangxvaythinhpNkhngcotacdungviNctinhtngslngimx1ivinhphamsthiNlabtbucvchngtrnhcnbitsontnhtchphntheotngphngphapcuthLabel = uilabel(app.UIFigure);
+            app.NoteKhinhpdliudangxvaythinhpNkhngcotacdungviNctinhtngslngimx1ivinhphamsthiNlabtbucvchngtrnhcnbitsontnhtchphntheotngphngphapcuthLabel.Position = [11 37 366 59];
+            app.NoteKhinhpdliudangxvaythinhpNkhngcotacdungviNctinhtngslngimx1ivinhphamsthiNlabtbucvchngtrnhcnbitsontnhtchphntheotngphngphapcuthLabel.Text = {'Note: Khi nhập dữ liệu dạng x và y thì ô nhập N không có tác dụng'; 'vì N được tính tự động = số lượng điểm x -  1'; '- Đối với nhập hàm số thì N là bắt buộc vì chương trình cần biết số'; 'đoạn, để tính tích phân theo từng phương pháp cụ thể'};
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = tichphan
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
