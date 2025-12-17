@@ -1,0 +1,300 @@
+classdef DaoHamapp < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                  matlab.ui.Figure
+        VDNhphmsx32x1Bcnhy0001Gitrcntnh3Label  matlab.ui.control.Label
+        VDNhpdliux0102030405nhpdliuy34567Gitrcntnh03535Label  matlab.ui.control.Label
+        Label                     matlab.ui.control.Label
+        Giatricuay                matlab.ui.control.EditField
+        NhpdliuyEditFieldLabel_2  matlab.ui.control.Label
+        Giatricuax                matlab.ui.control.EditField
+        NhpdliuxEditFieldLabel_2  matlab.ui.control.Label
+        HocLabel                  matlab.ui.control.Label
+        Ketqua                    matlab.ui.control.NumericEditField
+        KtQuButton                matlab.ui.control.Button
+        ChoSaiSo                  matlab.ui.container.ButtonGroup
+        Oh2Button                 matlab.ui.control.ToggleButton
+        OhButton                  matlab.ui.control.ToggleButton
+        Nhapham                   matlab.ui.control.EditField
+        NhpHmsEditFieldLabel      matlab.ui.control.Label
+        GiatriH                   matlab.ui.control.NumericEditField
+        NhpBchEditFieldLabel      matlab.ui.control.Label
+        giatricantim              matlab.ui.control.NumericEditField
+        GitrcntnhEditFieldLabel   matlab.ui.control.Label
+        ChonPhuongPhap            matlab.ui.container.ButtonGroup
+        LuiButton                 matlab.ui.control.ToggleButton
+        TrungTamButton            matlab.ui.control.ToggleButton
+        TienButton                matlab.ui.control.ToggleButton
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: KtQuButton
+        function Result_Func(app, event)
+         %USER FUNCTION 
+
+         %#################### USER INPUT VALUE ##########################%
+         x_value = app.giatricantim.Value;
+         x = str2num(strrep(app.Giatricuax.Value,',',' '));
+         y = str2num(strrep(app.Giatricuay.Value,',',' '));
+         h = app.GiatriH.Value;
+         
+         funcstr = app.Nhapham.Value;
+         hasFunction = ~isempty(funcstr);
+         if hasFunction
+           f = str2func(['@(x)' funcstr]);
+         else
+           f = [];
+         end 
+
+         TypeofError  = app.ChoSaiSo.SelectedObject;
+         if (TypeofError == app.OhButton)
+             errorType = "Oh";
+         else
+             errorType = "Oh2";
+         end 
+
+         TypeofMethod  = app.ChonPhuongPhap.SelectedObject;
+         if (TypeofMethod == app.TienButton)
+             method = "tien";
+         elseif (TypeofMethod == app.TrungTamButton)
+             method = "trungtam";
+         else 
+             method = "lui";
+         end 
+         %#################### USER INPUT VALUE ##########################%
+         
+
+
+         %#################### MAIN  FUNCTION ############################%
+        
+         if (~isempty(f))           
+           %=================FUNCTION CASE=================
+          switch method
+        
+          case "tien"
+            if errorType == "Oh"
+                result = (f(x_value + h) - f(x_value)) / h;
+            else % O(h^2)cos
+                result = (-3*f(x_value) + 4*f(x_value + h) - f(x_value + 2*h)) / (2*h);
+            end
+
+          case "trungtam"
+            if errorType == "Oh"
+                result = (f(x_value + h) - f(x_value - h)) / (2*h);
+            else % O(h^2)
+                result = (-f(x_value + 2*h) + 8*f(x_value + h) - 8*f(x_value - h) + f(x_value - 2*h)) / (12*h);
+            end
+
+          case "lui"
+            if errorType == "Oh"
+                result = (f(x_value) - f(x_value - h)) / h;
+            else % O(h^2)
+                result = (3*f(x_value) - 4*f(x_value - h) + f(x_value - 2*h)) / (2*h);
+            end
+         end
+
+         else
+
+         %=============NUMBERIC CASE====================
+         [~, idx] = min(abs(x - x_value));
+
+         if method == "tien"
+           if idx >= length(x)
+            result = NaN; % không thể tiến
+           else
+            result = (y(idx+1) - y(idx)) / (x(idx+1) - x(idx));
+           end
+        
+        elseif method == "lui"
+         if idx <= 1
+            result = NaN; % không thể lùi
+         else
+            result = (y(idx) - y(idx-1)) / (x(idx) - x(idx-1));
+         end
+
+       else % trung tâm
+        if idx <= 1 || idx >= length(x)
+            result = NaN; % không thể trung tâm
+        else
+            result = (y(idx+1) - y(idx-1)) / (x(idx+1) - x(idx-1));
+        end
+       end
+      end
+
+      %================ HIỆN KẾT QUẢ ================%
+      app.Ketqua.Value = result;
+
+
+      %#################### MAIN FUNCTION #############################%
+         
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 705 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create ChonPhuongPhap
+            app.ChonPhuongPhap = uibuttongroup(app.UIFigure);
+            app.ChonPhuongPhap.TitlePosition = 'centertop';
+            app.ChonPhuongPhap.Title = 'Chọn Phương Pháp';
+            app.ChonPhuongPhap.Position = [372 235 211 136];
+
+            % Create TienButton
+            app.TienButton = uitogglebutton(app.ChonPhuongPhap);
+            app.TienButton.Text = 'Tiến';
+            app.TienButton.Position = [16 81 173 23];
+            app.TienButton.Value = true;
+
+            % Create TrungTamButton
+            app.TrungTamButton = uitogglebutton(app.ChonPhuongPhap);
+            app.TrungTamButton.Text = 'Trung Tâm ';
+            app.TrungTamButton.Position = [16 51 173 23];
+
+            % Create LuiButton
+            app.LuiButton = uitogglebutton(app.ChonPhuongPhap);
+            app.LuiButton.Text = 'Lùi';
+            app.LuiButton.Position = [17 20 173 23];
+
+            % Create GitrcntnhEditFieldLabel
+            app.GitrcntnhEditFieldLabel = uilabel(app.UIFigure);
+            app.GitrcntnhEditFieldLabel.HorizontalAlignment = 'right';
+            app.GitrcntnhEditFieldLabel.Position = [364 385 83 22];
+            app.GitrcntnhEditFieldLabel.Text = 'Giá trị cần tính';
+
+            % Create giatricantim
+            app.giatricantim = uieditfield(app.UIFigure, 'numeric');
+            app.giatricantim.Position = [462 385 121 22];
+
+            % Create NhpBchEditFieldLabel
+            app.NhpBchEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpBchEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpBchEditFieldLabel.Position = [40 214 77 22];
+            app.NhpBchEditFieldLabel.Text = 'Nhập Bước h';
+
+            % Create GiatriH
+            app.GiatriH = uieditfield(app.UIFigure, 'numeric');
+            app.GiatriH.Position = [143 214 100 22];
+
+            % Create NhpHmsEditFieldLabel
+            app.NhpHmsEditFieldLabel = uilabel(app.UIFigure);
+            app.NhpHmsEditFieldLabel.HorizontalAlignment = 'right';
+            app.NhpHmsEditFieldLabel.Position = [40 255 78 22];
+            app.NhpHmsEditFieldLabel.Text = 'Nhập Hàm số';
+
+            % Create Nhapham
+            app.Nhapham = uieditfield(app.UIFigure, 'text');
+            app.Nhapham.Position = [127 255 116 22];
+
+            % Create ChoSaiSo
+            app.ChoSaiSo = uibuttongroup(app.UIFigure);
+            app.ChoSaiSo.TitlePosition = 'centertop';
+            app.ChoSaiSo.Title = 'Sai số bước nhảy';
+            app.ChoSaiSo.Position = [26 102 231 92];
+
+            % Create OhButton
+            app.OhButton = uitogglebutton(app.ChoSaiSo);
+            app.OhButton.Text = 'O(h)';
+            app.OhButton.Position = [11 38 213 23];
+            app.OhButton.Value = true;
+
+            % Create Oh2Button
+            app.Oh2Button = uitogglebutton(app.ChoSaiSo);
+            app.Oh2Button.Text = 'O(h^2)';
+            app.Oh2Button.Position = [11 9 213 23];
+
+            % Create KtQuButton
+            app.KtQuButton = uibutton(app.UIFigure, 'push');
+            app.KtQuButton.ButtonPushedFcn = createCallbackFcn(app, @Result_Func, true);
+            app.KtQuButton.BackgroundColor = [1 0 0];
+            app.KtQuButton.FontColor = [1 1 0];
+            app.KtQuButton.Position = [389 111 163 26];
+            app.KtQuButton.Text = 'Kết Quả';
+
+            % Create Ketqua
+            app.Ketqua = uieditfield(app.UIFigure, 'numeric');
+            app.Ketqua.HorizontalAlignment = 'center';
+            app.Ketqua.Position = [417 145 105 38];
+
+            % Create HocLabel
+            app.HocLabel = uilabel(app.UIFigure);
+            app.HocLabel.HorizontalAlignment = 'center';
+            app.HocLabel.FontSize = 14;
+            app.HocLabel.Position = [111 301 61 22];
+            app.HocLabel.Text = 'Hoặc';
+
+            % Create NhpdliuxEditFieldLabel_2
+            app.NhpdliuxEditFieldLabel_2 = uilabel(app.UIFigure);
+            app.NhpdliuxEditFieldLabel_2.HorizontalAlignment = 'right';
+            app.NhpdliuxEditFieldLabel_2.Position = [50 396 83 22];
+            app.NhpdliuxEditFieldLabel_2.Text = 'Nhập dữ liệu x';
+
+            % Create Giatricuax
+            app.Giatricuax = uieditfield(app.UIFigure, 'text');
+            app.Giatricuax.Position = [153 396 95 22];
+
+            % Create NhpdliuyEditFieldLabel_2
+            app.NhpdliuyEditFieldLabel_2 = uilabel(app.UIFigure);
+            app.NhpdliuyEditFieldLabel_2.HorizontalAlignment = 'right';
+            app.NhpdliuyEditFieldLabel_2.Position = [52 351 83 22];
+            app.NhpdliuyEditFieldLabel_2.Text = 'Nhập dữ liệu y';
+
+            % Create Giatricuay
+            app.Giatricuay = uieditfield(app.UIFigure, 'text');
+            app.Giatricuay.Position = [150 351 98 22];
+
+            % Create Label
+            app.Label = uilabel(app.UIFigure);
+            app.Label.Position = [610 142 25 22];
+            app.Label.Text = '';
+
+            % Create VDNhpdliux0102030405nhpdliuy34567Gitrcntnh03535Label
+            app.VDNhpdliux0102030405nhpdliuy34567Gitrcntnh03535Label = uilabel(app.UIFigure);
+            app.VDNhpdliux0102030405nhpdliuy34567Gitrcntnh03535Label.Position = [27 9 194 83];
+            app.VDNhpdliux0102030405nhpdliuy34567Gitrcntnh03535Label.Text = {'VÍ DỤ:'; 'Nhập dữ liệu x: [0.1 0,2 0,3 0.4 0.5]'; 'nhập dữ liệu y: [3 4 5 6 7]'; 'Giá trị cần tính: 0.3535'};
+
+            % Create VDNhphmsx32x1Bcnhy0001Gitrcntnh3Label
+            app.VDNhphmsx32x1Bcnhy0001Gitrcntnh3Label = uilabel(app.UIFigure);
+            app.VDNhphmsx32x1Bcnhy0001Gitrcntnh3Label.Position = [240 21 150 59];
+            app.VDNhphmsx32x1Bcnhy0001Gitrcntnh3Label.Text = {'VÍ DỤ:'; 'Nhập hàm số: x^3 + 2*x - 1'; 'Bước nhảy: 0.001'; 'Giá trị cần tính: 3'};
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = DaoHamapp
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
