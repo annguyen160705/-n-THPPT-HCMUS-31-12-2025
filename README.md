@@ -1,2 +1,2 @@
 # -n-THPPT-HCMUS-31-12-2025
-Đây là đồ án môn học THPPT về sử dụng appdesigner của matlab để tái hiện lại các phương pháp tính trên môn học lý thuyết
+This is a course project for THPPT, focusing on using MATLAB App Designer to recreate and visualize the calculation methods taught in the theoretical course.
